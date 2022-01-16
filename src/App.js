@@ -9,6 +9,9 @@ function App() {
   const [contract, setContract] = useState();
   const [manager, setManager] = useState();
   const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState([]);
+  const [balance, setBalance] = useState(0);
+  const [amount, setAmount] = useState(1);
 
   useEffect(() => {
     const abi = [
@@ -70,16 +73,68 @@ function App() {
     const newContract = new web3.eth.Contract(abi, address);
 
     setContract(newContract);
+  }, []);
 
+  useEffect(() => {
+    if (!contract) return;
     (async () => {
-      setManager(await newContract.methods.manager().call());
+      setManager(await contract.methods.manager().call());
+      setBalance(await web3.eth.getBalance(contract.options.address));
+      setPlayers(await contract.methods.getPlayers().call());
       setLoading(false);
     })();
-  }, []);
+  }, [contract]);
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      await contract.methods.enter().send({
+        from: (await web3.eth.getAccounts())[0],
+        value: web3.utils.toWei(amount.toString(), "ether"),
+      });
+      setManager(await contract.methods.manager().call());
+      setBalance(await web3.eth.getBalance(contract.options.address));
+      setPlayers(await contract.methods.getPlayers().call());
+      setLoading(false);
+    } catch (err) {
+      console.log(err);
+      setLoading(false);
+    }
+  };
+
+  const handlePickWinner = async () => {
+    try {
+      setLoading(true);
+      await contract.methods
+        .pickWinner()
+        .send({ from: (await web3.eth.getAccounts())[0] });
+      setManager(await contract.methods.manager().call());
+      setBalance(await web3.eth.getBalance(contract.options.address));
+      setPlayers(await contract.methods.getPlayers().call());
+      setLoading(false);
+    } catch (err) {
+      console.log(err);
+      setLoading(false);
+    }
+  };
 
   if (loading) return <h1>Loading...</h1>;
 
-  return <div>Hello Sarat! Manager is {manager}</div>;
+  return (
+    <div style={{ padding: 50 }}>
+      <h1>Welcome to ethereum lottery</h1>
+      <h3>This lottery is managed by {manager}</h3>
+      <h3>
+        {players.length} players have chipped in for {balance} wei
+      </h3>
+
+      <input value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <button onClick={handleSubmit}>Enter</button>
+
+      <h1>Want to Pick a Winner</h1>
+      <button onClick={handlePickWinner}>Pick Winner</button>
+    </div>
+  );
 }
 
 export default App;
